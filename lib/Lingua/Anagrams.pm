@@ -143,7 +143,6 @@ sub _words_in {
     my ( $counts, $total ) = @_;
     my @words;
     my @stack = ( [ 0, $trie, scalar @$trie ] );
-    my $last = @$counts;
     while (1) {
         my ( $c, $level, $limit ) = @{ $stack[0] };
         if ( $c == -1 || $c >= $limit ) {

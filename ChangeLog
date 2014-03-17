@@ -1,6 +1,8 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * Some micro-optimizations and simplifications of little functional impart.
+    The cache might use a bit less memory now as the keys are shorter.
 
 0.002     2014-03-16 20:43:25-04:00 America/New_York
   * convert words to integers (further) to improve memory use

@@ -52,7 +52,7 @@ our $LIMIT = 20;
 
 # some global variables to be localized
 # used to limit time spent copying values
-our ( $limit, $known, $trie, $cache, $lower, $cleaner, $jumps, $word_cache );
+our ( $limit, $known, $trie, %cache, $cleaner, @jumps, %word_cache, @indices );
 
 =method CLASS->new( $word_list, %params )
 
@@ -142,47 +142,47 @@ sub _add {
 sub _words_in {
     my ( $counts, $total ) = @_;
     my @words;
-    my @stack = ( [ 0, $trie, scalar @$trie ] );
+    my @stack = ( [ 0, $trie ] );
     while (1) {
-        my ( $c, $level, $limit ) = @{ $stack[0] };
-        if ( $c == -1 || $c >= $limit ) {
+        my ( $c, $level ) = @{ $stack[0] };
+        if ( $c == -1 || $c >= @$level ) {
             last if @stack == 1;
             shift @stack;
             ++$total;
             ++$counts->[ $stack[0][0] ];
-            $stack[0][0] = $jumps->[ $stack[0][0] ];
+            $stack[0][0] = $jumps[ $stack[0][0] ];
         }
         else {
             my $l = $level->[$c];
             if ($l) {    # trie holds corresponding node
                 if ($c) {    # character
                     if ( $counts->[$c] ) {
-                        unshift @stack, [ 0, $l, scalar @$l ];
+                        unshift @stack, [ 0, $l ];
                         --$counts->[$c];
                         --$total;
                     }
                     else {
-                        $stack[0][0] = $jumps->[$c];
+                        $stack[0][0] = $jumps[$c];
                     }
                 }
                 else {       # terminal
                     my $w = join '',
                       reverse map { chr( $_->[0] ) } @stack[ 1 .. $#stack ];
-                    $w = $word_cache->{$w} //= scalar keys %$word_cache;
+                    $w = $word_cache{$w} //= scalar keys %word_cache;
                     push @words, [ $w, [@$counts] ];
                     if ($total) {
-                        $stack[0][0] = $jumps->[$c];
+                        $stack[0][0] = $jumps[$c];
                     }
                     else {
                         shift @stack;
                         ++$total;
                         ++$counts->[ $stack[0][0] ];
-                        $stack[0][0] = $jumps->[ $stack[0][0] ];
+                        $stack[0][0] = $jumps[ $stack[0][0] ];
                     }
                 }
             }
             else {
-                $stack[0][0] = $jumps->[$c];
+                $stack[0][0] = $jumps[$c];
             }
         }
     }
@@ -204,18 +204,27 @@ sub anagrams {
     return () unless length $phrase;
     my $counts = _counts($phrase);
     return () unless _all_known($counts);
-    local $jumps = _jumps($counts);
-    my $lowest = $jumps->[0];
-    local $lower      = $lowest - 1;
-    local $cache      = {};
-    local $word_cache = {};
+    local @jumps   = _jumps($counts);
+    local @indices = _indices($counts);
+    my $lowest = $jumps[0];
+    local %cache      = ();
+    local %word_cache = ();
     my @anagrams = _anagramize($counts);
     return () unless @anagrams;
-    my %r = reverse %$word_cache;
+    my %r = reverse %word_cache;
     @anagrams = map {
         [ sort map { $r{$_} } @$_ ]
     } @anagrams;
     return @anagrams;
+}
+
+sub _indices {
+    my $counts = shift;
+    my @indices;
+    for my $i ( 0 .. $#$counts ) {
+        push @indices, $i if $counts->[$i];
+    }
+    return @indices;
 }
 
 sub _jumps {
@@ -227,7 +236,7 @@ sub _jumps {
         $j = $n;
     }
     $jumps[-1] = -1;
-    return \@jumps;
+    return @jumps;
 }
 
 sub _next_jump {
@@ -276,8 +285,8 @@ sub _anagramize {
     $total += $_ for @$counts;
     my $key;
     if ( $total <= $limit ) {
-        $key = join ',', splice @{ [@$counts] }, $lower;
-        my $cached = $cache->{$key};
+        $key = join ',', @$counts[@indices];
+        my $cached = $cache{$key};
         return @$cached if $cached;
     }
     my @anagrams;
@@ -296,7 +305,7 @@ sub _anagramize {
           ? ()
           : $_
     } @anagrams;
-    $cache->{$key} = \@anagrams if $key;
+    $cache{$key} = \@anagrams if $key;
     @anagrams;
 }
 

@@ -1,6 +1,8 @@
 Revision history for TPath
 
 {{$NEXT}}
+
+0.002     2014-03-16 20:43:25-04:00 America/New_York
   * convert words to integers (further) to improve memory use
 
 0.001     2014-03-16 17:18:00-04:00 America/New_York

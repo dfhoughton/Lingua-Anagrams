@@ -1,6 +1,7 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * still better (accidentally released unsuccessful experiment with .005)
 
 0.005     2014-03-17 13:18:54-04:00 America/New_York
   * another wee optimization, this in the summing of character counts

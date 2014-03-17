@@ -206,7 +206,6 @@ sub anagrams {
     return () unless _all_known($counts);
     local @jumps   = _jumps($counts);
     local @indices = _indices($counts);
-    my $lowest = $jumps[0];
     local %cache      = ();
     local %word_cache = ();
     my @anagrams = _anagramize($counts);

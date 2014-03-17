@@ -23,7 +23,7 @@ use warnings;
   print "\n\n";
   print scalar(@anagrams) , " anagrams\n"";
   print 'it took ' , ( $t2 - $t1 ) , " seconds\n"";
-  
+
 Giving you
 
   ...
@@ -34,7 +34,7 @@ Giving you
 
   20906 anagrams
   it took 3 seconds
-  
+
 =head1 DESCRIPTION
 
 L<Lingua::Anagrams> constructs a trie out of a list of words you give it. It then uses this
@@ -52,7 +52,7 @@ our $LIMIT = 20;
 
 # some global variables to be localized
 # used to limit time spent copying values
-our ( $limit, $known, $trie, $cache, $lower, $cleaner, $jumps );
+our ( $limit, $known, $trie, $cache, $lower, $cleaner, $jumps, $word_cache );
 
 =method CLASS->new( $word_list, %params )
 
@@ -166,13 +166,10 @@ sub _words_in {
                     }
                 }
                 else {       # terminal
-                    push @words,
-                      [
-                        join( '',
-                            reverse map { chr( $_->[0] ) }
-                              @stack[ 1 .. $#stack ] ),
-                        [@$counts]
-                      ];
+                    my $w = join '',
+                      reverse map { chr( $_->[0] ) } @stack[ 1 .. $#stack ];
+                    $w = $word_cache->{$w} //= scalar keys %$word_cache;
+                    push @words, [ $w, [@$counts] ];
                     if ($total) {
                         $stack[0][0] = $jumps->[$c];
                     }
@@ -209,9 +206,16 @@ sub anagrams {
     return () unless _all_known($counts);
     local $jumps = _jumps($counts);
     my $lowest = $jumps->[0];
-    local $lower = $lowest - 1;
-    local $cache = {};
-    return _anagramize($counts);
+    local $lower      = $lowest - 1;
+    local $cache      = {};
+    local $word_cache = {};
+    my @anagrams = _anagramize($counts);
+    return () unless @anagrams;
+    my %r = reverse %$word_cache;
+    @anagrams = map {
+        [ sort map { $r{$_} } @$_ ]
+    } @anagrams;
+    return @anagrams;
 }
 
 sub _jumps {
@@ -287,7 +291,11 @@ sub _anagramize {
         }
     }
     my %seen;
-    @anagrams = map { $seen{ join ' ', sort @$_ }++ ? () : $_ } @anagrams;
+    @anagrams = map {
+        $seen{ join ' ', sort { $a <=> $b } @$_ }++
+          ? ()
+          : $_
+    } @anagrams;
     $cache->{$key} = \@anagrams if $key;
     @anagrams;
 }

@@ -1,6 +1,7 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * re-use empty list for all terminals to save some memory
 
 0.003     2014-03-17 10:03:44-04:00 America/New_York
   * Some micro-optimizations and simplifications of little functional impart.

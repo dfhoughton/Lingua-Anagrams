@@ -105,6 +105,7 @@ sub _trieify {
     my $words = shift;
     my $base  = [];
     my ( @known, $lowest );
+    my $terminal = [];
     for my $word (@$words) {
         $cleaner->($word);
         next unless length $word;
@@ -119,7 +120,7 @@ sub _trieify {
         }
         _learn( \@known, \@chars );
         push @chars, 0;
-        _add( $base, \@chars );
+        _add( $base, \@chars, $terminal );
     }
     return $base, \@known, $lowest;
 }
@@ -132,10 +133,15 @@ sub _learn {
 }
 
 sub _add {
-    my ( $base, $chars ) = @_;
+    my ( $base, $chars, $terminal ) = @_;
     my $i = shift @$chars;
-    my $next = $base->[$i] //= [];
-    _add( $next, $chars ) if $i;
+    if ($i) {
+        my $next = $base->[$i] //= [];
+        _add( $next, $chars, $terminal );
+    }
+    else {
+        $base->[0] //= $terminal;
+    }
 }
 
 # walk the trie looking for words you can make out of the current character count
@@ -204,8 +210,8 @@ sub anagrams {
     return () unless length $phrase;
     my $counts = _counts($phrase);
     return () unless _all_known($counts);
-    local @jumps   = _jumps($counts);
-    local @indices = _indices($counts);
+    local @jumps      = _jumps($counts);
+    local @indices    = _indices($counts);
     local %cache      = ();
     local %word_cache = ();
     my @anagrams = _anagramize($counts);

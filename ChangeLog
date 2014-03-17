@@ -1,6 +1,8 @@
 Revision history for TPath
 
 {{$NEXT}}
+
+0.005     2014-03-17 13:18:54-04:00 America/New_York
   * another wee optimization, this in the summing of character counts
 
 0.004     2014-03-17 12:58:05-04:00 America/New_York

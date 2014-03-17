@@ -1,6 +1,9 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * another wee optimization, this in the summing of character counts
+
+0.004     2014-03-17 12:58:05-04:00 America/New_York
   * re-use empty list for all terminals to save some memory
 
 0.003     2014-03-17 10:03:44-04:00 America/New_York

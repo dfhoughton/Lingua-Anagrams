@@ -287,10 +287,11 @@ sub _any {
 sub _anagramize {
     my $counts = shift;
     my $total  = 0;
-    $total += $_ for @$counts;
+    my @used =  @$counts[@indices];
+    $total += $_ for @used;
     my $key;
     if ( $total <= $limit ) {
-        $key = join ',', @$counts[@indices];
+        $key = join ',', @used;
         my $cached = $cache{$key};
         return @$cached if $cached;
     }

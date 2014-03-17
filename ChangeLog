@@ -1,6 +1,8 @@
 Revision history for TPath
 
 {{$NEXT}}
+
+0.003     2014-03-17 10:03:44-04:00 America/New_York
   * Some micro-optimizations and simplifications of little functional impart.
     The cache might use a bit less memory now as the keys are shorter.
 

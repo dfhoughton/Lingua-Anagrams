@@ -1,6 +1,7 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * fresh release not larded up with accidental crud
 
 0.006     2014-03-17 13:22:55-04:00 America/New_York
   * still better (accidentally released unsuccessful experiment with .005)

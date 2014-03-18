@@ -321,13 +321,24 @@ sub _anagramize {
 
 sub _all_touched {
     my ( $counts, $words ) = @_;
+
+    my ( $first_index, $c );
+
+    # if any letter count didn't change, there's no hope
   OUTER: for my $i (@indices) {
-        next unless my $c = $counts->[$i];
+        next unless $c = $counts->[$i];
+        $first_index //= $i;
         for (@$words) {
             next OUTER if $_->[1][$i] < $c;
         }
         return;
     }
+
+    # we only need consider all the branches which affected a
+    # particular letter; we will find all possibilities in their
+    # ramifications
+    $c = $counts->[$first_index];
+    @$words = grep { $_->[1][$first_index] < $c } @$words;
     return 1;
 }
 

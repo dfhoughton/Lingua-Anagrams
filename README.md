@@ -4,7 +4,7 @@ Lingua::Anagrams
 David F. Houghton
 16, March, 2014
 
-I wrote this to amuse myself. I hope others enjoy it as well. It's a pure Perl anagram generator. You need to give it a *good* word list to initialize it. Then you give it phrases and it gives you anagrams. It uses a dynamic programming algorithm plus some heavy Perl golf to achieve as much speed as it can, which works out pretty well if your word list isn't filled with short bits of crud like "q" and "nm".
+I wrote this to amuse myself. I hope others enjoy it as well. It's a pure Perl anagram generator. You need to give it a *good* word list to initialize it. Then you give it phrases and it gives you anagrams. It uses a dynamic programming algorithm plus some heavy Perl golf (and some tricks) to achieve as much speed as it can, which works out pretty well if your word list isn't filled with short bits of crud like "q" and "nm".
 
 Full Documentation
 ------------------

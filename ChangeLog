@@ -1,6 +1,7 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * slight optimization of stack handling
 
 0.007     2014-03-18 06:43:36-04:00 America/New_York
   * fresh release not larded up with accidental crud

@@ -150,45 +150,47 @@ sub _words_in {
     my @words;
     my @stack = ( [ 0, $trie ] );
     while (1) {
-        my ( $c, $level ) = @{ $stack[0] };
+        my ( $c, $level ) = @{ $stack[-1] };
         if ( $c == -1 || $c >= @$level ) {
             last if @stack == 1;
-            shift @stack;
+            pop @stack;
             ++$total;
-            ++$counts->[ $stack[0][0] ];
-            $stack[0][0] = $jumps[ $stack[0][0] ];
+            $c = \( $stack[-1][0] );
+            ++$counts->[$$c];
+            $$c = $jumps[$$c];
         }
         else {
             my $l = $level->[$c];
             if ($l) {    # trie holds corresponding node
                 if ($c) {    # character
                     if ( $counts->[$c] ) {
-                        unshift @stack, [ 0, $l ];
+                        push @stack, [ 0, $l ];
                         --$counts->[$c];
                         --$total;
                     }
                     else {
-                        $stack[0][0] = $jumps[$c];
+                        $stack[-1][0] = $jumps[$c];
                     }
                 }
                 else {       # terminal
                     my $w = join '',
-                      reverse map { chr( $_->[0] ) } @stack[ 1 .. $#stack ];
+                      map { chr( $_->[0] ) } @stack[ 0 .. $#stack - 1 ];
                     $w = $word_cache{$w} //= scalar keys %word_cache;
                     push @words, [ $w, [@$counts] ];
                     if ($total) {
-                        $stack[0][0] = $jumps[$c];
+                        $stack[-1][0] = $jumps[$c];
                     }
                     else {
-                        shift @stack;
+                        pop @stack;
                         ++$total;
-                        ++$counts->[ $stack[0][0] ];
-                        $stack[0][0] = $jumps[ $stack[0][0] ];
+                        $c = \( $stack[-1][0] );
+                        ++$counts->[$$c];
+                        $$c = $jumps[$$c];
                     }
                 }
             }
             else {
-                $stack[0][0] = $jumps[$c];
+                $stack[-1][0] = $jumps[$c];
             }
         }
     }

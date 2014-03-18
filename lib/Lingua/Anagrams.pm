@@ -194,7 +194,7 @@ sub _words_in {
             }
         }
     }
-    @words;
+    \@words;
 }
 
 =method $self->anagrams( $phrase )
@@ -297,23 +297,38 @@ sub _anagramize {
         return @$cached if $cached;
     }
     my @anagrams;
-    for ( _words_in( $counts, $total ) ) {
-        my ( $word, $c ) = @$_;
-        if ( _any($c) ) {
-            push @anagrams, [ $word, @$_ ] for _anagramize($c);
+    my $words = _words_in( $counts, $total );
+    if ( _all_touched( $counts, $words ) ) {
+        for (@$words) {
+            my ( $word, $c ) = @$_;
+            if ( _any($c) ) {
+                push @anagrams, [ $word, @$_ ] for _anagramize($c);
+            }
+            else {
+                push @anagrams, [$word];
+            }
         }
-        else {
-            push @anagrams, [$word];
-        }
+        my %seen;
+        @anagrams = map {
+            $seen{ join ' ', sort { $a <=> $b } @$_ }++
+              ? ()
+              : $_
+        } @anagrams;
     }
-    my %seen;
-    @anagrams = map {
-        $seen{ join ' ', sort { $a <=> $b } @$_ }++
-          ? ()
-          : $_
-    } @anagrams;
     $cache{$key} = \@anagrams if $key;
     @anagrams;
+}
+
+sub _all_touched {
+    my ( $counts, $words ) = @_;
+  OUTER: for my $i (@indices) {
+        next unless my $c = $counts->[$i];
+        for (@$words) {
+            next OUTER if $_->[1][$i] < $c;
+        }
+        return;
+    }
+    return 1;
 }
 
 1;

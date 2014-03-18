@@ -6,3 +6,4 @@ scowl
 \.old$
 ^#.*#$
 ^\.#
+^anagrams\.pl

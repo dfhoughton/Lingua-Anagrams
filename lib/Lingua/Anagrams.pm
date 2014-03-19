@@ -343,3 +343,46 @@ sub _all_touched {
 }
 
 1;
+
+__END__
+
+=head1 SOME CLEVER BITS
+
+One trick I use to speed things up is to convert all characters to integers
+immediately. If you're using integers, you can treat arrays are really fast
+hashes.
+
+Another is, in the trie, to build the trie only of arrays. The character
+identity is encoded in the array position, the distance from the start by depth.
+So the trie contains nothing but arrays. For a little memory efficiency the
+terminal symbols is always the same empty array.
+
+The natural way to walk the trie is with recursion, but I use a stack and a loop
+to speed things up.
+
+I use a jump table to keep track of the actual characters under consideration so
+when walking the trie I only consider characters that might be in anagrams.
+
+A particular step of anagram generation consists of pulling out all words that
+can be formed with the current character counts. If a particular character count
+is not decremented in the formation of any word in a given step we know we've
+reached a dead end and we should give up.
+
+Similarly, if we B<do> touch every character in a particular step we can collect
+all the words extracted which touch that character and descend only into the
+remaining possibilities for those character counts because the other words one
+might exctract are necessarily contained in the remaining character counts.
+
+The dynamic programming bit consists of memoizing the anagram lists keyed to the
+character counts so we never extract the anagrams for a particular set of counts
+twice (of course, we have to calculate this key many times, which is not free).
+
+I localize a bunch of variables on the first method call so that thereafter
+these values can be treated as global. This saves a lot of copying.
+
+After the initial method calls I use functions, which saves a lot of lookup time.
+
+In stack operations I use push and pop in lieu of unshift and shift. The former
+are more efficient, especially with short arrays.
+
+=cut

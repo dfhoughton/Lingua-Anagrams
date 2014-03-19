@@ -1,6 +1,8 @@
 Revision history for TPath
 
 {{$NEXT}}
+
+0.008     2014-03-18 20:21:59-04:00 America/New_York
   * slight optimization of stack handling
   * added pruning of impossible branches (see TODO)
   * pruning redundant branches in search

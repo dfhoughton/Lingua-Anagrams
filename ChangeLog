@@ -1,6 +1,8 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * allow cascading word lists
+  * minimum anagram count parameter
 
 0.009     2014-03-21 14:01:07-04:00 America/New_York
   * made sorting optional and added it for entire list

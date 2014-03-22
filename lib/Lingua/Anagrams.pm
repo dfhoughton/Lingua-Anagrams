@@ -5,42 +5,56 @@ package Lingua::Anagrams;
 use strict;
 use warnings;
 
+use List::MoreUtils qw(uniq);
+
 =head1 SYNOPSIS
 
   use Lingua::Anagrams;
-
-  open my $fh, '<', 'wordsEn.txt' or die "Aargh! $!";
-  my @words = <$fh>;
+  
+  open my $fh, '<', 'words.txt' or die "Aargh! $!";         # some 100,000 words
+  my @words = map { ( my $w = $_ ) =~ s/\W+//g; $w } <$fh>;
   close $fh;
-
-  my $anagramizer = Lingua::Anagrams->new( \@words );  # NOT a good word list for this purpose
-
-  my $t1       = time;
-  my @anagrams = $anagramizer->anagrams('Find anagrams!');
-  my $t2       = time;
-
+  
+  my @enormous = grep { length($_) > 6 } @words;
+  my @huge     = grep { length($_) == 6 } @words;
+  my @big      = grep { length($_) == 5 } @words;
+  my @medium   = grep { length($_) == 4 } @words;
+  my @small    = grep { length($_) == 3 } @words;
+  my @tiny     = grep { length($_) < 3 } @words;
+  
+  my $anagramizer = Lingua::Anagrams->new(
+      [ \@enormous, \@huge, \@big, \@medium, \@small, \@tiny ],
+      limit => 30 );
+  
+  my $t1 = time;
+  my @anagrams =
+    $anagramizer->anagrams( 'Ada Hyacinth Melton-Houghton', sorted => 1, min => 100 );
+  my $t2 = time;
+  
   print join ' ', @$_ for @anagrams;
   print "\n\n";
-  print scalar(@anagrams) , " anagrams\n"";
-  print 'it took ' , ( $t2 - $t1 ) , " seconds\n"";
+  print scalar(@anagrams) . " anagrams\n";
+  print 'it took ' . ( $t2 - $t1 ) . " seconds\n";
 
 Giving you
 
   ...
-  naif nm rag sad
-  naif nm raga sd
-  naif nm rd saga
-  naif ragman sd
-
-  20906 anagrams
-  it took 3 seconds
+  manned ohioan thatch toughly
+  menial noonday thatch though
+  monthly ohioan thatch unaged
+  moolah nighty notched utahan
+  moolah tannin though yachted
+  moolah thatch toeing unhandy
+  
+  1582 anagrams
+  it took 229 seconds
 
 =head1 DESCRIPTION
 
-L<Lingua::Anagrams> constructs a trie out of a list of words you give it. It then uses this
-trie to find all the anagrams of a phrase you give to its C<anagrams> method. A dynamic
-programming algorithm is used to accelerate at the cost of memory. See C<new> for how one may
-modify this algorithm.
+L<Lingua::Anagrams> constructs tries out of a lists of words you give it. It then uses these
+tries to find all the anagrams of a phrase you give to its C<anagrams> method. A dynamic
+programming algorithm is used to accelerate the search at the cost of memory. See
+C<new> for how one may modify this algorithm.
 
 Be aware that the anagram algorithm has been golfed down pretty far to squeeze more speed out
 of it. It isn't the prettiest.
@@ -56,8 +70,18 @@ our ( $limit, $known, $trie, %cache, $cleaner, @jumps, %word_cache, @indices );
 
 =method CLASS->new( $word_list, %params )
 
-Construct a new anagram engine from a word list. The parameters understood
-by the constructor are
+Construct a new anagram engine from a word list, or a list of word lists. If you provide multiple
+word lists, each successive list will be understood as an augmentation of those preceding it.
+If you search for the anagrams of a phrase, the algorithm will abandon one list and try the
+next if it is unable to find sufficient anagrams with the current list. You can use cascading
+word lists like this to find interesting anagrams of long phrases as well as short ones in
+a reasonable amount of time. If on the other hand you use only one comprehensive list you will
+find that long phrases have many millions of anagrams the calculation of which take vast amounts
+of memory and time. In particular you will want to limit the number of short words in the
+earlier lists as these multiply the possible anagrams much more quickly.
+
+The optional construction parameters may be provided either as a list of key-value pairs or
+as a hash reference. The understood parameters are:
 
 =over 4
 
@@ -87,47 +111,72 @@ Note that this function, like C<_clean>, must modify its argument directly.
 
 A boolean. If true, the anagram list will be returned sorted.
 
+=item min
+
+The minimum number of anagrams to look for. This value is only consulted if the anagram engine
+has more than one word list. If the first word list returns too few anagrams, the second is
+applied. If no minimum is provided the effective minimum is one.
+
 =back
 
 =cut
 
 sub new {
-    my ( $class, $words, %params ) = @_;
+    my $class = shift;
+    my $wl    = shift;
+    die 'first parameter expected to be an array reference'
+      unless ref $wl eq 'ARRAY';
+    my %params;
+    if ( @_ == 1 ) {
+        %params = %{ $_[0] };
+    }
+    else {
+        %params = @_;
+    }
     $class = ref $class || $class;
     local $cleaner = $params{clean} // \&_clean;
-    my ( $trie, $known, $lowest ) = _trieify($words);
-    die 'no words' unless $lowest;
+    my @word_lists;
+    if ( ref $wl->[0] eq 'ARRAY' ) {
+        @word_lists = @$wl;
+    }
+    else {
+        @word_lists = ($wl);
+    }
+    my ( @tries, @all_words );
+    for my $words (@word_lists) {
+        next unless @$words;
+        die 'items in lists expected to be words' if ref $words->[0];
+        $cleaner->($_) for @$words;
+        my $s1 = @all_words;
+        push @all_words, @$words;
+        @all_words = uniq @all_words;
+        next unless @all_words > $s1;
+        my ( $trie, $known ) = _trieify( \@all_words );
+        push @tries, [ $trie, $known ];
+    }
+    die 'no words' unless @tries;
     return bless {
         limit  => $params{limit}  // $LIMIT,
         sorted => $params{sorted} // 0,
+        min    => $params{min},
         clean  => $cleaner,
-        trie   => $trie,
-        known  => $known,
-    }, $class;
+        tries  => \@tries,
+      },
+      $class;
 }
 
 sub _trieify {
     my $words = shift;
     my $base  = [];
-    my ( @known, $lowest );
+    my @known;
     my $terminal = [];
     for my $word (@$words) {
-        $cleaner->($word);
-        next unless length $word;
+        next unless length( $word // '' );
         my @chars = map ord, split //, $word;
-        for my $i (@chars) {
-            if ( defined $lowest ) {
-                $lowest = $i if $i < $lowest;
-            }
-            else {
-                $lowest = $i;
-            }
-        }
         _learn( \@known, \@chars );
-        push @chars, 0;
         _add( $base, \@chars, $terminal );
     }
-    return $base, \@known, $lowest;
+    return $base, \@known;
 }
 
 sub _learn {
@@ -218,44 +267,63 @@ As with the constructor option, this determines whether the anagrams are sorted
 internally and with respect to each other. It overrides the constructor parameter,
 which provides the default.
 
+=item min
+
+The minimum number of anagrams to look for. This value is only consulted if the anagram engine
+has more than one word list. This overrides any value from the constructor parameter C<min>.
+
 =back
 
 =cut
 
 sub anagrams {
-    my $self = shift;
+    my $self   = shift;
     my $phrase = shift;
     my %opts;
-    if (@_ == 1) {
+    if ( @_ == 1 ) {
         my $r = shift;
-        die 'options expected to be key value pairs or a hash ref' unless 'HASH' eq ref $r;
+        die 'options expected to be key value pairs or a hash ref'
+          unless 'HASH' eq ref $r;
         %opts = %$r;
-    } else {
+    }
+    else {
         %opts = @_;
     }
-    local ( $trie, $known, $limit, $cleaner ) =
-      @$self{qw(trie known limit clean)};
+    my $tries = $self->{tries};
+    local ( $limit, $cleaner ) = @$self{qw(limit clean)};
     $cleaner->($phrase);
     return () unless length $phrase;
-    my $counts = _counts($phrase);
-    return () unless _all_known($counts);
-    local @jumps      = _jumps($counts);
-    local @indices    = _indices($counts);
-    local %cache      = ();
-    local %word_cache = ();
-    my @anagrams = _anagramize($counts);
-    return () unless @anagrams;
-    my %r = reverse %word_cache;
-    @anagrams = map {
-        [ map { $r{$_} } @$_ ]
-    } @anagrams;
-    my $sort;
-
+    my ( $sort, $min );
     if ( exists $opts{sorted} ) {
         $sort = $opts{sorted};
     }
     else {
         $sort = $self->{sorted};
+    }
+    if ( exists $opts{min} ) {
+        $min = $opts{min};
+    }
+    else {
+        $min = $self->{min};
+    }
+    my $counts = _counts($phrase);
+    local @jumps   = _jumps($counts);
+    local @indices = _indices($counts);
+    my @anagrams;
+    for my $pair (@$tries) {
+        print ".\n";
+        local ( $trie, $known ) = @$pair;
+        next unless _all_known($counts);
+        local %cache      = ();
+        local %word_cache = ();
+        @anagrams = _anagramize($counts);
+        next unless @anagrams;
+        next if $min and @anagrams < $min;
+        my %r = reverse %word_cache;
+        @anagrams = map {
+            [ map { $r{$_} } @$_ ]
+        } @anagrams;
+        last;
     }
     if ($sort) {
         @anagrams = sort {

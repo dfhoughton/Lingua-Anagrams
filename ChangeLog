@@ -2,6 +2,9 @@ Revision history for TPath
 
 {{$NEXT}}
 
+0.011     2014-03-22 17:55:10-04:00 America/New_York
+  * cleaned up some debugging code
+
 0.010     2014-03-22 17:52:55-04:00 America/New_York
   * allow cascading word lists
   * minimum anagram count parameter

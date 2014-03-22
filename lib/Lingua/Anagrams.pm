@@ -311,7 +311,6 @@ sub anagrams {
     local @indices = _indices($counts);
     my @anagrams;
     for my $pair (@$tries) {
-        print ".\n";
         local ( $trie, $known ) = @$pair;
         next unless _all_known($counts);
         local %cache      = ();

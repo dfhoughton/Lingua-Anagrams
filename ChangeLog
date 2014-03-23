@@ -1,6 +1,8 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * fixed minimum anagram count bug: if the minimum could not be found, it would
+    fail to translate the word numbers back into words
 
 0.011     2014-03-22 17:55:10-04:00 America/New_York
   * cleaned up some debugging code

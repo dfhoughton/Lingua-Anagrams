@@ -437,23 +437,41 @@ sub _anagramize {
 sub _all_touched {
     my ( $counts, $words ) = @_;
 
-    my ( $first_index, $c );
+    my $c;
+
+    my ( @tallies, @good_indices );
+    for (@$words) {
+        my $wc = $_->[1];
+        for (@indices) {
+            next unless $c = $counts->[$_];
+            $good_indices[$_] //= $_;
+            $tallies[$_]++ if $wc->[$_] < $c;
+        }
+    }
 
     # if any letter count didn't change, there's no hope
-  OUTER: for my $i (@indices) {
-        next unless $c = $counts->[$i];
-        $first_index //= $i;
-        for (@$words) {
-            next OUTER if $_->[1][$i] < $c;
+    return unless @good_indices;
+    for (@good_indices) {
+        next   unless $_;
+        return unless $tallies[$_];
+    }
+
+    # find the letter with the fewest possibilities
+    my ( $best, $min, $n );
+    for (@good_indices) {
+        next unless $_;
+        $n = $tallies[$_];
+        if ( !$best || $n < $min ) {
+            $best = $_;
+            $min  = $n;
         }
-        return;
     }
 
     # we only need consider all the branches which affected a
     # particular letter; we will find all possibilities in their
     # ramifications
-    $c = $counts->[$first_index];
-    @$words = grep { $_->[1][$first_index] < $c } @$words;
+    $c = $counts->[$best];
+    @$words = grep { $_->[1][$best] < $c } @$words;
     return 1;
 }
 

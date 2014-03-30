@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Lingua::Anagrams;
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::Exception;
 
 lives_ok { Lingua::Anagrams->new( [qw(a b c d)] ) } 'built vanilla anagramizer';
@@ -54,6 +54,12 @@ while ( my $anagram = $i->() ) {
 # there is no surefire way to test the randomness of the random iterator
 is scalar(@ar), scalar(@expected),
   'got correct number of anagrams with random iterator';
+$i = $ag->iterator( 'abc', random => 1, sorted => 1 );
+@ar = ();
+while ( my $anagram = $i->() ) {
+    push @ar, $anagram;
+}
+is_deeply [ ag_sort(@ar) ], \@expected, 'sort parameter works for iterator';
 
 sub ag_sort {
     sort {

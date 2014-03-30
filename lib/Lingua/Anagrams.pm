@@ -127,13 +127,7 @@ sub new {
     my $wl    = shift;
     die 'first parameter expected to be an array reference'
       unless ref $wl eq 'ARRAY';
-    my %params;
-    if ( @_ == 1 ) {
-        %params = %{ $_[0] };
-    }
-    else {
-        %params = @_;
-    }
+    my %params = _make_opts(@_);
     $class = ref $class || $class;
     local $cleaner = $params{clean} // \&_clean;
     my @word_lists;
@@ -344,7 +338,7 @@ sub _make_opts {
     }
 }
 
-=method $self->iterator($phrase)
+=method $self->iterator($phrase, %opts)
 
 Generators a code reference once can use to iterate over all the anagrams
 of a phrase. This iterator will be considerably slower than the C<anagrams> method
@@ -354,12 +348,35 @@ sufficiently large that there is not sufficient memory and/or time to create the
 complete anagram list, an iterator is your only option. Iterators are much more
 memory efficient.
 
+If the anagram engine holds multiple word lists, longer lists are sorted only as
+necessary.
+
+As with the other methods, the optional C<%opts> may be provided as either a list
+of key-value pairs or as a hash reference. The understood options are
+
+=over 4
+
+=item sorted
+
+If true, anagrams will be internally sorted, though not necessarily relative to each
+other. In fact, because of how anagrams are gathered, they will tend to be returned
+in sorted order unless the C<random> parameter is set to true.
+
+=item random
+
+If true, the anagrams are returned in relatively random order. The order is only
+relatively random because it will still be the case that longer word lists are only
+consulted as a last resort.
+
+=back
+
 =cut
 
 sub iterator {
     my $self   = shift;
     my $phrase = shift;
     my %opts   = _make_opts(@_);
+    $opts{sorted} //= $self->{sorted};
     $self->{clean}->($phrase);
     return sub { }
       unless length $phrase;
@@ -395,7 +412,11 @@ sub _super_iterator {
                 last;
             }
         }
-        [ map { $reverse_cache{$_} } @$rv ];
+        $rv = [ map { $reverse_cache{$_} } @$rv ];
+        if ( $opts->{sorted} ) {
+            $rv = [ sort @$rv ];
+        }
+        $rv;
     };
 }
 
@@ -444,7 +465,7 @@ sub _sub_iterator {
     return sub {
         {
             return unless @pairs;
-            if ($opts->{random}) {
+            if ( $opts->{random} ) {
                 my $i = int rand scalar @pairs;
                 if ($i) {
                     my $p = $pairs[0];

@@ -280,21 +280,13 @@ has more than one word list. This overrides any value from the constructor param
 sub anagrams {
     my $self   = shift;
     my $phrase = shift;
-    my %opts;
-    if ( @_ == 1 ) {
-        my $r = shift;
-        die 'options expected to be key value pairs or a hash ref'
-          unless 'HASH' eq ref $r;
-        %opts = %$r;
-    }
-    else {
-        %opts = @_;
-    }
-    my $tries = $self->{tries};
+    my %opts   = _make_opts(@_);
+    my $tries  = $self->{tries};
     local ( $limit, $cleaner ) = @$self{qw(limit clean)};
     $cleaner->($phrase);
     return () unless length $phrase;
     my ( $sort, $min );
+
     if ( exists $opts{sorted} ) {
         $sort = $opts{sorted};
     }
@@ -317,7 +309,7 @@ sub anagrams {
         next unless _all_known($counts);
         local %cache = ();
         %$word_cache = ();
-        @anagrams   = _anagramize($counts);
+        @anagrams    = _anagramize($counts);
         next unless @anagrams;
         next if $min and @anagrams < $min;
         last;
@@ -340,6 +332,18 @@ sub anagrams {
     return @anagrams;
 }
 
+sub _make_opts {
+    if ( @_ == 1 ) {
+        my $r = shift;
+        die 'options expected to be key value pairs or a hash ref'
+          unless 'HASH' eq ref $r;
+        return %$r;
+    }
+    else {
+        return @_;
+    }
+}
+
 =method $self->iterator($phrase)
 
 Generators a code reference once can use to iterate over all the anagrams
@@ -353,30 +357,31 @@ memory efficient.
 =cut
 
 sub iterator {
-    my ( $self, $phrase ) = @_;
+    my $self   = shift;
+    my $phrase = shift;
+    my %opts   = _make_opts(@_);
     $self->{clean}->($phrase);
     return sub { }
       unless length $phrase;
-    my $counts = _counts($phrase);
-    my @j      = _jumps($counts);
-    my @i      = _indices($counts);
-    my $tries  = $self->{tries};
-    return _super_iterator( $tries, $counts, \@j, \@i );
+    return _super_iterator( $self->{tries}, $phrase );
 }
 
 # iterator that converts word indices back to words
 sub _super_iterator {
-    my ( $tries, $counts, $j, $ix ) = @_;
-    my $wc = {};
-    local @indices    = @$ix;
-    local @jumps      = @$j;
+    my ( $tries, $phrase ) = @_;
+    my $counts = _counts($phrase);
+    my @j      = _jumps($counts);
+    my @ix     = _indices($counts);
+    my $wc     = {};
+    local @indices    = @ix;
+    local @jumps      = @j;
     local $word_cache = $wc;
     my $i = _iterator( $tries, $counts );
     my ( %reverse_cache, %c );
     return sub {
         my $rv;
-        local @jumps      = @$j;
-        local @indices    = @$ix;
+        local @jumps      = @j;
+        local @indices    = @ix;
         local $word_cache = $wc;
         {
             $rv = $i->();

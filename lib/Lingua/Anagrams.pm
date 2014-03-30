@@ -363,12 +363,12 @@ sub iterator {
     $self->{clean}->($phrase);
     return sub { }
       unless length $phrase;
-    return _super_iterator( $self->{tries}, $phrase );
+    return _super_iterator( $self->{tries}, $phrase, \%opts );
 }
 
 # iterator that converts word indices back to words
 sub _super_iterator {
-    my ( $tries, $phrase ) = @_;
+    my ( $tries, $phrase, $opts ) = @_;
     my $counts = _counts($phrase);
     my @j      = _jumps($counts);
     my @ix     = _indices($counts);
@@ -376,7 +376,7 @@ sub _super_iterator {
     local @indices    = @ix;
     local @jumps      = @j;
     local $word_cache = $wc;
-    my $i = _iterator( $tries, $counts );
+    my $i = _iterator( $tries, $counts, $opts );
     my ( %reverse_cache, %c );
     return sub {
         my $rv;
@@ -401,7 +401,7 @@ sub _super_iterator {
 
 # iterator that manages the trie list
 sub _iterator {
-    my ( $tries, $counts ) = @_;
+    my ( $tries, $counts, $opts ) = @_;
     my $total = 0;
     $total += $_ for @$counts[@indices];
     my @t = @$tries;
@@ -419,7 +419,7 @@ sub _iterator {
                     redo unless _all_known($counts);
                     my $words = _words_in( $counts, $total );
                     redo unless _worth_pursuing( $counts, $words );
-                    $i = _sub_iterator( $tries, $words );
+                    $i = _sub_iterator( $tries, $words, $opts );
                 }
                 else {
                     return $rv;
@@ -439,15 +439,23 @@ sub _iterator {
 
 # iterator that actually walks tries looking for anagrams
 sub _sub_iterator {
-    my ( $tries, $words ) = @_;
+    my ( $tries, $words, $opts ) = @_;
     my @pairs = @$words;
     return sub {
         {
             return unless @pairs;
+            if ($opts->{random}) {
+                my $i = int rand scalar @pairs;
+                if ($i) {
+                    my $p = $pairs[0];
+                    $pairs[0] = $pairs[$i];
+                    $pairs[$i] = $p;
+                }
+            }
             my ( $w, $s ) = @{ $pairs[0] };
             unless ( ref $s eq 'CODE' ) {
                 if ( _any($s) ) {
-                    $s = _iterator( $tries, $s );
+                    $s = _iterator( $tries, $s, $opts );
                 }
                 else {
                     my $next = [];

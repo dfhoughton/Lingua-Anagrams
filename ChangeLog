@@ -3,7 +3,6 @@ Revision history for TPath
 {{$NEXT}}
   * optimization: use least-branchy letters
   * added iterator generator
-  * added random option for iterator
 
 0.012     2014-03-23 12:43:04-04:00 America/New_York
   * fixed minimum anagram count bug: if the minimum could not be found, it would

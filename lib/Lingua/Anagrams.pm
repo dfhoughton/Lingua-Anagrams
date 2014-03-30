@@ -67,7 +67,7 @@ our $LIMIT = 20;
 
 # some global variables to be localized
 # used to limit time spent copying values
-our ( $limit, $known, $trie, %cache, $cleaner, @jumps, %word_cache, @indices );
+our ( $limit, $known, $trie, %cache, $cleaner, @jumps, $word_cache, @indices );
 
 =method CLASS->new( $word_list, %params )
 
@@ -230,7 +230,7 @@ sub _words_in {
                 else {       # terminal
                     my $w = join '',
                       map { chr( $_->[0] ) } @stack[ 0 .. $#stack - 1 ];
-                    $w = $word_cache{$w} //= scalar keys %word_cache;
+                    $w = $word_cache->{$w} //= scalar keys %$word_cache;
                     push @words, [ $w, [@$counts] ];
                     if ($total) {
                         $stack[-1][0] = $jumps[$c];
@@ -311,18 +311,18 @@ sub anagrams {
     local @jumps   = _jumps($counts);
     local @indices = _indices($counts);
     my @anagrams;
-    local %word_cache;
+    local $word_cache = {};
     for my $pair (@$tries) {
         local ( $trie, $known ) = @$pair;
         next unless _all_known($counts);
         local %cache = ();
-        %word_cache = ();
+        %$word_cache = ();
         @anagrams   = _anagramize($counts);
         next unless @anagrams;
         next if $min and @anagrams < $min;
         last;
     }
-    my %r = reverse %word_cache;
+    my %r = reverse %$word_cache;
     @anagrams = map {
         [ map { $r{$_} } @$_ ]
     } @anagrams;
@@ -338,6 +338,147 @@ sub anagrams {
         } map { [ sort @$_ ] } @anagrams;
     }
     return @anagrams;
+}
+
+=method $self->iterator($phrase)
+
+Generators a code reference once can use to iterate over all the anagrams
+of a phrase. This iterator will be considerably slower than the C<anagrams> method
+if you want to fetch all the anagrams of a phrase but considerably faster if your
+phrase is large and you just want a sample of anagrams. And if your phrase is
+sufficiently large that there is not sufficient memory and/or time to create the
+complete anagram list, an iterator is your only option. Iterators are much more
+memory efficient.
+
+=cut
+
+sub iterator {
+    my ( $self, $phrase ) = @_;
+    $self->{clean}->($phrase);
+    return sub { }
+      unless length $phrase;
+    my $counts = _counts($phrase);
+    my @j      = _jumps($counts);
+    my @i      = _indices($counts);
+    my $tries  = $self->{tries};
+    return _super_iterator( $tries, $counts, \@j, \@i );
+}
+
+# iterator that converts word indices back to words
+sub _super_iterator {
+    my ( $tries, $counts, $j, $ix ) = @_;
+    my $wc = {};
+    local @indices    = @$ix;
+    local @jumps      = @$j;
+    local $word_cache = $wc;
+    my $i = _iterator( $tries, $counts );
+    my ( %reverse_cache, %c );
+    return sub {
+        my $rv;
+        local @jumps      = @$j;
+        local @indices    = @$ix;
+        local $word_cache = $wc;
+        {
+            $rv = $i->();
+            return unless $rv;
+            my $key = join ',', sort { $a <=> $b } @$rv;
+            redo if $c{$key}++;
+        }
+        for my $j (@$rv) {
+            if ( !$reverse_cache{$j} ) {
+                %reverse_cache = reverse %$word_cache;
+                last;
+            }
+        }
+        [ map { $reverse_cache{$_} } @$rv ];
+    };
+}
+
+# iterator that manages the trie list
+sub _iterator {
+    my ( $tries, $counts ) = @_;
+    my $total = 0;
+    $total += $_ for @$counts[@indices];
+    my @t = @$tries;
+    my ( $i, $next, $initialized );
+    my $s = sub {
+        my $rv = $next;
+        undef $next;
+        return $rv if $initialized && !$rv;
+        $initialized //= 1;
+        {
+            unless ($i) {
+                if (@t) {
+                    my $pair = shift @t;
+                    local ( $trie, $known ) = @$pair;
+                    redo unless _all_known($counts);
+                    my $words = _words_in( $counts, $total );
+                    redo unless _worth_pursuing( $counts, $words );
+                    $i = _sub_iterator( $tries, $words );
+                }
+                else {
+                    return $rv;
+                }
+            }
+            $next = $i->();
+            unless ($next) {
+                undef $i;
+                redo;
+            }
+        }
+        $rv;
+    };
+    $s->();    # initialize
+    $s;
+}
+
+# iterator that actually walks tries looking for anagrams
+sub _sub_iterator {
+    my ( $tries, $words ) = @_;
+    my @pairs = @$words;
+    return sub {
+        {
+            return unless @pairs;
+            my ( $w, $s ) = @{ $pairs[0] };
+            unless ( ref $s eq 'CODE' ) {
+                if ( _any($s) ) {
+                    $s = _iterator( $tries, $s );
+                }
+                else {
+                    my $next = [];
+                    $s = sub {
+                        my $rv = $next;
+                        undef $next;
+                        $rv;
+                    };
+                }
+                $pairs[0][1] = $s;
+            }
+            my $remainder = $s->();
+            unless ($remainder) {
+                shift @pairs;
+                redo;
+            }
+            return [ $w, @$remainder ];
+        }
+    };
+}
+
+# all character counts decremented
+sub _worth_pursuing {
+    my ( $counts, $words ) = @_;
+
+    my $c;
+
+    # if any letter count didn't change, there's no hope
+  OUTER: for my $i (@indices) {
+        next unless $c = $counts->[$i];
+        for (@$words) {
+            next OUTER if $_->[1][$i] < $c;
+        }
+        return;
+    }
+    return 1;
 }
 
 sub _indices {
@@ -395,8 +536,8 @@ sub _counts {
 }
 
 sub _any {
-    for my $v ( @{ $_[0] } ) {
-        return 1 if $v;
+    for ( @{ $_[0] } ) {
+        return 1 if $_;
     }
     '';
 }

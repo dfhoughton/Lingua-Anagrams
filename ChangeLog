@@ -1,6 +1,7 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * improved iterator so it doesn't pre-load the next iteration
 
 0.013     2014-03-30 13:49:42-04:00 America/New_York
   * optimization: use least-branchy letters

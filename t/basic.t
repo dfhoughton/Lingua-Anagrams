@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Lingua::Anagrams;
-use Test::More tests => 12;
+use Test::More tests => 16;
 use Test::Exception;
 
 lives_ok { Lingua::Anagrams->new( [qw(a b c d)] ) } 'built vanilla anagramizer';
@@ -60,6 +60,18 @@ while ( my $anagram = $i->() ) {
     push @ar, $anagram;
 }
 is_deeply [ ag_sort(@ar) ], \@expected, 'sort parameter works for iterator';
+
+$ag = Lingua::Anagrams->new( [ ['foo'], [ 'f', 'o' ] ] );
+@ar1 = $ag->anagrams( 'foo', min => 1 );
+@ar2 = $ag->anagrams( 'foo', min => 1, start_list => -1 );
+is_deeply $ar1[0], ['foo'], 'expected result with all word lists';
+is_deeply $ar2[0], [ 'f', 'o', 'o' ],
+  'expected result using only biggest word list';
+$i = $ag->iterator('foo');
+is_deeply $i->(), ['foo'], 'expected result with iall word lists iterator';
+$i = $ag->iterator( 'foo', start_list => -1 );
+is_deeply $i->(), [ 'f', 'o', 'o' ],
+  'expected result using only biggest word list iterator';
 
 sub ag_sort {
     sort {

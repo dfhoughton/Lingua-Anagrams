@@ -288,7 +288,6 @@ sub anagrams {
     my $self   = shift;
     my $phrase = shift;
     my %opts   = _make_opts(@_);
-    my $tries  = $self->{tries};
     local ( $limit, $cleaner ) = @$self{qw(limit clean)};
     $cleaner->($phrase);
     return () unless length $phrase;

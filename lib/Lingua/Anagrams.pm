@@ -38,7 +38,8 @@ use List::MoreUtils qw(uniq);
   say 'it took ' . ( $t2 - $t1 ) . ' seconds';
   
   say "\nnow for a random sample\n";
-  say join ' ', @{ $anagramizer->iterator( 'Ada Hyacinth Melton-Houghton', random => 1 ) };
+  my $i = $anagramizer->iterator( 'Ada Hyacinth Melton-Houghton', random => 1 );
+  say join ' ', @{ $i->() };
 
 Giving you
 

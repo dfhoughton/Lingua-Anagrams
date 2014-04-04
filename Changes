@@ -1,6 +1,7 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * doc fix
 
 0.015     2014-04-03 21:11:22-04:00 America/New_York
   * added option to let someone choose the word list for iterators and anagram

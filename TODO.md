@@ -3,6 +3,8 @@ TODO
 
 Things I mean to do.
 
+* Fix the sort bug when there's only one anagram.
+
 FROMDONE
 ========
 

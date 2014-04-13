@@ -2,8 +2,9 @@ use strict;
 use warnings;
 
 use Lingua::Anagrams;
-use Test::More tests => 16;
+use Test::More tests => 21;
 use Test::Exception;
+use Test::Deep qw(eq_deeply);
 
 lives_ok { Lingua::Anagrams->new( [qw(a b c d)] ) } 'built vanilla anagramizer';
 lives_ok { Lingua::Anagrams->new( [qw(a b c d)], limit => 10 ) }
@@ -72,6 +73,19 @@ is_deeply $i->(), ['foo'], 'expected result with iall word lists iterator';
 $i = $ag->iterator( 'foo', start_list => -1 );
 is_deeply $i->(), [ 'f', 'o', 'o' ],
   'expected result using only biggest word list iterator';
+
+$ag  = Lingua::Anagrams->new( [qw(b ba)] );
+@ar1 = $ag->anagrams('bba');
+@ar2 = $ag->anagrams( 'bba', sorted => 1 );
+ok !eq_deeply( \@ar1, \@ar2 ), 'sorting changes order when appropriate';
+
+ok $ag->key('bag') eq $ag->key('gab'),
+  'identical letter counts give identical keys';
+ok $ag->key('bag') ne $ag->key('gob'),
+  'different letter counts give different keys';
+ok $ag->key('bag') eq $ag->key(' bag  '),
+  'key method ignores non-word characters';
+is $ag->lists, 1, 'lists method returns the number of word lists';
 
 sub ag_sort {
     sort {

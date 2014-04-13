@@ -1,6 +1,10 @@
 Revision history for TPath
 
 {{$NEXT}}
+  * added key method
+  * added lists method
+  * added unit test for sorting
+  * some documentation fixes
 
 0.016     2014-04-04 09:27:44-04:00 America/New_York
   * doc fix

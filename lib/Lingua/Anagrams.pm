@@ -154,9 +154,22 @@ sub new {
     _validate_lists( \@word_lists );
     my $translator = { '' => 0 };
     $translator->{$_} = scalar keys %$translator for @{ $word_lists[-1] };
+    my $offset;    # used to reduce number of undef cells in tries and elsewhere
+    for my $w ( @{ $word_lists[-1] } ) {
+        my @ords = map ord, split //, $w;
+        for my $o (@ords) {
+            if ( defined $offset ) {
+                $offset = $o if $o < $offset;
+            }
+            else {
+                $offset = $o;
+            }
+        }
+    }
+    --$offset;
     my @tries;
     for my $words (@word_lists) {
-        my ( $trie, $known ) = _trieify( $words, $translator );
+        my ( $trie, $known ) = _trieify( $words, $translator, $offset );
         push @tries, [ $trie, $known ];
     }
     $translator = [ '', @{ $word_lists[-1] } ];
@@ -167,6 +180,7 @@ sub new {
         clean  => $cleaner,
         tries  => \@tries,
         translator => $translator,
+        offset     => $offset,
       },
       $class;
 }
@@ -192,12 +206,12 @@ sub _validate_lists {
 }
 
 sub _trieify {
-    my ( $words, $translator ) = @_;
+    my ( $words, $translator, $offset ) = @_;
     my $base = [];
     my @known;
     for my $word (@$words) {
         next unless length( $word // '' );
-        my @chars = map ord, split //, $word;
+        my @chars = map { ord($_) - $offset } split //, $word;
         _learn( \@known, \@chars );
         _add( $base, \@chars, $word, $translator );
     }
@@ -334,7 +348,8 @@ sub anagrams {
         $i = @pairs + $i if $i < 0;
         @pairs = @pairs[ $i .. $#pairs ];
     }
-    my $counts     = _counts($phrase);
+    my $offset     = $self->{offset};
+    my $counts     = _counts( $phrase, $offset );
     my @translator = @{ $self->{translator} };
     local @jumps   = _jumps($counts);
     local @indices = _indices($counts);
@@ -437,13 +452,14 @@ sub iterator {
         @pairs = @pairs[ $i .. $#pairs ];
     }
     return $null unless length $phrase;
-    return _super_iterator( \@pairs, $phrase, \%opts, $self->{translator} );
+    return _super_iterator( \@pairs, $phrase, \%opts,
+        @$self{qw(translator offset)} );
 }
 
 # iterator that converts word indices back to words
 sub _super_iterator {
-    my ( $tries, $phrase, $opts, $translator ) = @_;
-    my $counts = _counts($phrase);
+    my ( $tries, $phrase, $opts, $translator, $offset ) = @_;
+    my $counts = _counts( $phrase, $offset );
     my @j      = _jumps($counts);
     my @ix     = _indices($counts);
     my $i      = _iterator( $tries, $counts, $opts );
@@ -618,8 +634,9 @@ A key is just a compressed representation of the character counts in the phrase.
 sub key {
     my ( $self, $phrase ) = @_;
     $self->{clean}->($phrase);
+    my $offset = $self->{offset};
     my ( @counts, $lowest );
-    for my $c ( map ord, split //, $phrase ) {
+    for my $c ( map { ord($_) - $offset } split //, $phrase ) {
         if ( defined $lowest ) {
             $lowest = $c if $c < $lowest;
         }
@@ -649,9 +666,9 @@ sub lists {
 }
 
 sub _counts {
-    my $phrase = shift;
+    my ( $phrase, $offset ) = @_;
     my @counts;
-    for my $c ( map ord, split //, $phrase ) {
+    for my $c ( map { ord($_) - $offset } split //, $phrase ) {
         $counts[$c]++;
     }
     $_ //= 0 for @counts;
@@ -748,11 +765,6 @@ __END__
 One trick I use to speed things up is to convert all characters to integers
 immediately. If you're using integers, you can treat arrays are really fast
 hashes.
-
-Another is, in the trie, to build the trie only of arrays. The character
-identity is encoded in the array position, the distance from the start by depth.
-So the trie contains nothing but arrays. For a little memory efficiency the
-terminal symbols is always the same empty array.
 
 The natural way to walk the trie is with recursion, but I use a stack and a loop
 to speed things up.

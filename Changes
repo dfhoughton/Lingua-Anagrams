@@ -2,6 +2,7 @@ Revision history for Lingua::Anagrams
 
 {{$NEXT}}
   * added more word list validation
+  * changed integer-to-word conversion for slight performance gain
 
 0.017     2014-04-13 11:43:07-04:00 America/New_York
   * added key method

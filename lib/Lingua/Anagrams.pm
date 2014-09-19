@@ -75,7 +75,7 @@ our $LIMIT = 20;
 
 # some global variables to be localized
 # used to limit time spent copying values
-our ( $limit, $known, $trie, %cache, $cleaner, @jumps, $word_cache, @indices );
+our ( $limit, $known, $trie, %cache, $cleaner, @jumps, @indices );
 
 =method new
 
@@ -151,18 +151,22 @@ sub new {
     else {
         @word_lists = ($wl);
     }
-    _validate_lists(\@word_lists);
-    my ( @tries, @all_words );
+    _validate_lists( \@word_lists );
+    my $translator = { '' => 0 };
+    $translator->{$_} = scalar keys %$translator for @{ $word_lists[-1] };
+    my @tries;
     for my $words (@word_lists) {
-        my ( $trie, $known ) = _trieify( $words );
+        my ( $trie, $known ) = _trieify( $words, $translator );
         push @tries, [ $trie, $known ];
     }
+    $translator = [ '', @{ $word_lists[-1] } ];
     return bless {
         limit  => $params{limit}  // $LIMIT,
         sorted => $params{sorted} // 0,
         min    => $params{min},
         clean  => $cleaner,
         tries  => \@tries,
+        translator => $translator,
       },
       $class;
 }
@@ -188,15 +192,14 @@ sub _validate_lists {
 }
 
 sub _trieify {
-    my $words = shift;
-    my $base  = [];
+    my ( $words, $translator ) = @_;
+    my $base = [];
     my @known;
-    my $terminal = [];
     for my $word (@$words) {
         next unless length( $word // '' );
         my @chars = map ord, split //, $word;
         _learn( \@known, \@chars );
-        _add( $base, \@chars, $terminal );
+        _add( $base, \@chars, $word, $translator );
     }
     return $base, \@known;
 }
@@ -209,14 +212,14 @@ sub _learn {
 }
 
 sub _add {
-    my ( $base, $chars, $terminal ) = @_;
+    my ( $base, $chars, $word, $translator ) = @_;
     my $i = shift @$chars;
     if ($i) {
         my $next = $base->[$i] //= [];
-        _add( $next, $chars, $terminal );
+        _add( $next, $chars, $word, $translator );
     }
-    else {
-        $base->[0] //= $terminal;
+    else {    # store values in trie at the zero index
+        $base->[0] = $translator->{$word};
     }
 }
 
@@ -249,10 +252,7 @@ sub _words_in {
                     }
                 }
                 else {       # terminal
-                    my $w = join '',
-                      map { chr( $_->[0] ) } @stack[ 0 .. $#stack - 1 ];
-                    $w = $word_cache->{$w} //= scalar keys %$word_cache;
-                    push @words, [ $w, [@$counts] ];
+                    push @words, [ $l, [@$counts] ];
                     if ($total) {
                         $stack[-1][0] = $jumps[$c];
                     }
@@ -265,7 +265,7 @@ sub _words_in {
                     }
                 }
             }
-            else {
+            else {    # try the next possible character
                 $stack[-1][0] = $jumps[$c];
             }
         }
@@ -334,25 +334,21 @@ sub anagrams {
         $i = @pairs + $i if $i < 0;
         @pairs = @pairs[ $i .. $#pairs ];
     }
-    my $counts = _counts($phrase);
+    my $counts     = _counts($phrase);
+    my @translator = @{ $self->{translator} };
     local @jumps   = _jumps($counts);
     local @indices = _indices($counts);
     my @anagrams;
-    local $word_cache = {};
     for my $pair (@pairs) {
         local ( $trie, $known ) = @$pair;
         next unless _all_known($counts);
         local %cache = ();
-        %$word_cache = ();
-        @anagrams    = _anagramize($counts);
+        @anagrams = _anagramize($counts);
         next unless @anagrams;
         next if $min and @anagrams < $min;
         last;
     }
-    my %r = reverse %$word_cache;
-    @anagrams = map {
-        [ map { $r{$_} } @$_ ]
-    } @anagrams;
+    @anagrams = map { [ @translator[@$_] ] } @anagrams;
     if ($sort) {
         @anagrams = sort {
             my $ordered = @$a <= @$b ? 1 : -1;
@@ -441,36 +437,28 @@ sub iterator {
         @pairs = @pairs[ $i .. $#pairs ];
     }
     return $null unless length $phrase;
-    return _super_iterator( \@pairs, $phrase, \%opts );
+    return _super_iterator( \@pairs, $phrase, \%opts, $self->{translator} );
 }
 
 # iterator that converts word indices back to words
 sub _super_iterator {
-    my ( $tries, $phrase, $opts ) = @_;
+    my ( $tries, $phrase, $opts, $translator ) = @_;
     my $counts = _counts($phrase);
     my @j      = _jumps($counts);
     my @ix     = _indices($counts);
-    my $wc     = {};
     my $i      = _iterator( $tries, $counts, $opts );
-    my ( %reverse_cache, %c );
+    my %c;
     return sub {
         my $rv;
-        local @jumps      = @j;
-        local @indices    = @ix;
-        local $word_cache = $wc;
+        local @jumps   = @j;
+        local @indices = @ix;
         {
             $rv = $i->();
             return unless $rv;
             my $key = join ',', sort { $a <=> $b } @$rv;
             redo if $c{$key}++;
         }
-        for my $j (@$rv) {
-            if ( !$reverse_cache{$j} ) {
-                %reverse_cache = reverse %$word_cache;
-                last;
-            }
-        }
-        $rv = [ map { $reverse_cache{$_} } @$rv ];
+        $rv = [ @$translator[@$rv] ];
         if ( $opts->{sorted} ) {
             $rv = [ sort @$rv ];
         }

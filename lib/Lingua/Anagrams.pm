@@ -151,19 +151,12 @@ sub new {
     else {
         @word_lists = ($wl);
     }
+    _validate_lists(\@word_lists);
     my ( @tries, @all_words );
     for my $words (@word_lists) {
-        next unless @$words;
-        die 'items in lists expected to be words' if ref $words->[0];
-        $cleaner->($_) for @$words;
-        my $s1 = @all_words;
-        push @all_words, @$words;
-        @all_words = uniq @all_words;
-        next unless @all_words > $s1;
-        my ( $trie, $known ) = _trieify( \@all_words );
+        my ( $trie, $known ) = _trieify( $words );
         push @tries, [ $trie, $known ];
     }
-    die 'no words' unless @tries;
     return bless {
         limit  => $params{limit}  // $LIMIT,
         sorted => $params{sorted} // 0,
@@ -172,6 +165,26 @@ sub new {
         tries  => \@tries,
       },
       $class;
+}
+
+# there should be no empty lists and each list should be subsumed
+# by the next
+sub _validate_lists {
+    my $lists = shift;
+    for my $i ( 0 .. $#$lists ) {
+        my @list = uniq grep length,
+          map { my $v = $_ // ''; $cleaner->($v); $v } @{ $lists->[$i] };
+        die 'empty list' unless @list;
+        $lists->[$i] = \@list;
+    }
+    for my $i ( 1 .. $#$lists ) {
+        my ( $prior, $list ) = @$lists[ $i - 1, $i ];
+        die 'lists misordered by length' if @$prior >= @$list;
+        my %set = map { $_ => 1 } @$list;
+        for my $word (@$prior) {
+            die 'smaller lists must be subsumed by larger' unless $set{$word};
+        }
+    }
 }
 
 sub _trieify {

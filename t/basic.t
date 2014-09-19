@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Lingua::Anagrams;
-use Test::More tests => 21;
+use Test::More tests => 26;
 use Test::Exception;
 use Test::Deep qw(eq_deeply);
 
@@ -13,6 +13,16 @@ lives_ok {
     Lingua::Anagrams->new( [qw(a b c d)], cleaner => sub { } );
 }
 'built anagramizer with different cleaner';
+throws_ok { Lingua::Anagrams->new( [] ) } qr/empty list/,
+  'dies with only an empty word list';
+throws_ok { Lingua::Anagrams->new( [ [], ['a'] ] ) } qr/empty list/,
+  'dies with any empty word list';
+throws_ok { Lingua::Anagrams->new( [ ['a'], ['a'] ] ) } qr/misordered/,
+  'dies with repeated word lists';
+throws_ok { Lingua::Anagrams->new( [ ['ab'], [ 'b', 'a' ] ] ) } qr/subsume/,
+  'dies with non-subsuming word lists';
+throws_ok { Lingua::Anagrams->new( [ [ 'a', 'b' ], ['a'] ] ) } qr/misordered/,
+  'dies with non-increasing word lists';
 
 my $ag       = Lingua::Anagrams->new( [qw(a b c ab bc ac abc)], sorted => 1 );
 my @anagrams = $ag->anagrams('abc');
@@ -62,14 +72,14 @@ while ( my $anagram = $i->() ) {
 }
 is_deeply [ ag_sort(@ar) ], \@expected, 'sort parameter works for iterator';
 
-$ag = Lingua::Anagrams->new( [ ['foo'], [ 'f', 'o' ] ] );
+$ag = Lingua::Anagrams->new( [ ['foo'], [ 'foo', 'f', 'o' ] ] );
 @ar1 = $ag->anagrams( 'foo', min => 1 );
 @ar2 = $ag->anagrams( 'foo', min => 1, start_list => -1 );
 is_deeply $ar1[0], ['foo'], 'expected result with all word lists';
 is_deeply $ar2[0], [ 'f', 'o', 'o' ],
   'expected result using only biggest word list';
 $i = $ag->iterator('foo');
-is_deeply $i->(), ['foo'], 'expected result with iall word lists iterator';
+is_deeply $i->(), ['foo'], 'expected result with word lists iterator';
 $i = $ag->iterator( 'foo', start_list => -1 );
 is_deeply $i->(), [ 'f', 'o', 'o' ],
   'expected result using only biggest word list iterator';

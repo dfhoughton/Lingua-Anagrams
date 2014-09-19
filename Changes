@@ -1,6 +1,7 @@
-Revision history for TPath
+Revision history for Lingua::Anagrams
 
 {{$NEXT}}
+  * added more word list validation
 
 0.017     2014-04-13 11:43:07-04:00 America/New_York
   * added key method

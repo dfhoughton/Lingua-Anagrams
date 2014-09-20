@@ -210,7 +210,6 @@ sub _trieify {
     my $base = [];
     my @known;
     for my $word (@$words) {
-        next unless length( $word // '' );
         my @chars = map { ord($_) - $offset } split //, $word;
         _learn( \@known, \@chars );
         _add( $base, \@chars, $word, $translator );
@@ -327,21 +326,9 @@ sub anagrams {
     local ( $limit, $cleaner ) = @$self{qw(limit clean)};
     $cleaner->($phrase);
     return () unless length $phrase;
-    my ( $sort, $min );
-
-    if ( exists $opts{sorted} ) {
-        $sort = $opts{sorted};
-    }
-    else {
-        $sort = $self->{sorted};
-    }
-    if ( exists $opts{min} ) {
-        $min = $opts{min};
-    }
-    else {
-        $min = $self->{min};
-    }
-    my $i = $opts{start_list} // 0;
+    my $sort = $opts{sorted}     // $self->{sorted};
+    my $min  = $opts{min}        // $self->{min};
+    my $i    = $opts{start_list} // 0;
     my @pairs = @{ $self->{tries} };
     if ($i) {
         die "impossible index for start list: $i" unless defined $pairs[$i];
@@ -705,10 +692,8 @@ sub _anagramize {
             }
         }
         my %seen;
-        @anagrams = map {
-            $seen{ join ' ', sort { $a <=> $b } @$_ }++
-              ? ()
-              : $_
+        @anagrams = grep {
+            !$seen{ join ' ', sort { $a <=> $b } @$_ }++
         } @anagrams;
     }
     $cache{$key} = \@anagrams if $key;

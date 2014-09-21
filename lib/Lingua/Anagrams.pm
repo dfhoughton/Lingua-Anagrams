@@ -462,9 +462,7 @@ sub _super_iterator {
             redo if $c{$key}++;
         }
         $rv = [ @$translator[@$rv] ];
-        if ( $opts->{sorted} ) {
-            $rv = [ sort @$rv ];
-        }
+        $rv = [ sort @$rv ] if $opts->{sorted};
         $rv;
     };
 }
@@ -476,7 +474,7 @@ sub _iterator {
     $total += $_ for @$counts[@indices];
     my @t = @$tries;
     my $i;
-    my $s = sub {
+    sub {
         my $rv;
         {
             unless ($i) {
@@ -500,14 +498,13 @@ sub _iterator {
         }
         $rv;
     };
-    $s;
 }
 
 # iterator that actually walks tries looking for anagrams
 sub _sub_iterator {
     my ( $tries, $words, $opts ) = @_;
     my @pairs = @$words;
-    return sub {
+    sub {
         {
             return unless @pairs;
             if ( $opts->{random} ) {
@@ -538,7 +535,7 @@ sub _sub_iterator {
                 shift @pairs;
                 redo;
             }
-            return [ $w, @$remainder ];
+            [ $w, @$remainder ];
         }
     };
 }

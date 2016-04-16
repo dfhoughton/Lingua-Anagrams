@@ -2,6 +2,8 @@ Revision history for Lingua::Anagrams
   * documentation fixes
 
 {{$NEXT}}
+
+0.019     2016-04-16 19:46:23-04:00 America/New_York
   * some code cleanup
   * minor efficiency improvements to iterator functions
 

@@ -745,7 +745,7 @@ __END__
 =head1 SOME CLEVER BITS
 
 One trick I use to speed things up is to convert all characters to integers
-immediately. If you're using integers, you can treat arrays are really fast
+immediately. If you're using integers, you can treat arrays as really fast
 hashes.
 
 The natural way to walk the trie is with recursion, but I use a stack and a loop
@@ -762,7 +762,7 @@ reached a dead end and we should give up.
 Similarly, if we B<do> touch every character in a particular step we can collect
 all the words extracted which touch that character and descend only into the
 remaining possibilities for those character counts because the other words one
-might exctract are necessarily contained in the remaining character counts.
+might extract are necessarily contained in the remaining character counts.
 
 The dynamic programming bit consists of memoizing the anagram lists keyed to the
 character counts so we never extract the anagrams for a particular set of counts
